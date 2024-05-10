@@ -167,6 +167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f71139874b95295468f9d15ff619c5e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  pianoKeys: []
 --- !u!1 &127902335
 GameObject:
   m_ObjectHideFlags: 0
@@ -458,6 +459,8 @@ MonoBehaviour:
   _leftHand: {fileID: 1415358138}
   _rightHand: {fileID: 1707978594}
   _pianoObject: {fileID: 44807902}
+  _linePrefab: {fileID: 4000594724551293080, guid: 910d333d72f5d35458d1fe3492269c91,
+    type: 3}
   pianoKeyRenderer: {fileID: 0}
 --- !u!1 &690042596
 GameObject:

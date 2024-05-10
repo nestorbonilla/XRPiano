@@ -17,9 +17,17 @@ public class MidiManager: MonoBehaviour
     [SerializeField] private OVRHand _leftHand;
     [SerializeField] private OVRHand _rightHand;
     [SerializeField] private GameObject _pianoObject;
+    [SerializeField] private GameObject _linePrefab;
     public PianoKeyRenderer pianoKeyRenderer;
     private ConcurrentQueue<MidiInMessageEventArgs> _midiEventsQueue = new ConcurrentQueue<MidiInMessageEventArgs>();
-
+    private Dictionary<string, (LineRenderer, Coroutine)> activeAnimations = new Dictionary<string, (LineRenderer, Coroutine)>();
+    float easeInOut(float t) {
+        if (t < 0.5f) {
+            return Mathf.Pow(2 * t, 2);
+        } else {
+            return 1 - Mathf.Pow(2 * (1 - t), 2);
+        }
+    }
     void Start()
     {
         Debug.Log("Starting MIDI Manager...");
@@ -54,7 +62,7 @@ public class MidiManager: MonoBehaviour
 
         if (_leftLimitStep == 1)
         {
-            Vector3 leftPinkyOffset = new Vector3(0.15f, 0.01f, -0.03f);
+            Vector3 leftPinkyOffset = new Vector3(0.15f, 0.06f, -0.045f);
             Vector3 leftPinkyPosition = _leftHand.transform.position + _leftHand.transform.rotation * leftPinkyOffset;
             _leftPrefab = Instantiate(anchorPrefab, leftPinkyPosition, Quaternion.identity);
             _leftPrefab.AddComponent<OVRSpatialAnchor>();
@@ -63,7 +71,7 @@ public class MidiManager: MonoBehaviour
         }
         if (_rightLimitStep == 1)
         {
-            Vector3 rightPinkyOffset = new Vector3(-0.15f, 0.01f, 0.03f);
+            Vector3 rightPinkyOffset = new Vector3(-0.15f, -0.06f, 0.045f);
             Vector3 rightPinkyPosition = _rightHand.transform.position + _rightHand.transform.rotation * rightPinkyOffset;
             _rightPrefab = Instantiate(anchorPrefab, rightPinkyPosition, Quaternion.identity);
             _rightPrefab.AddComponent<OVRSpatialAnchor>();
@@ -110,8 +118,6 @@ public class MidiManager: MonoBehaviour
         if (_leftLimitStep == 3 || _rightLimitStep  == 3)
         {
             string[] midiEventParts = e.MidiEvent.ToString().Split(' ');
-            Debug.Log("MIDI Event[1]: " + midiEventParts[1]);
-            Debug.Log("MIDI Event[4]: " + midiEventParts[4]);
             string midiNoteAction = midiEventParts[1];
             if (midiNoteAction == "NoteOn")
             {
@@ -122,7 +128,24 @@ public class MidiManager: MonoBehaviour
 
                     if (keyObject.name == midiNoteValue)
                     {
-                        keyRenderer.material.color = Color.yellow;
+                        keyRenderer.material.color = Color.gray;
+                        
+                        GameObject lineObject = new GameObject("LineObject");
+                        LineRenderer lineRenderer = lineObject.AddComponent<LineRenderer>();
+                        lineRenderer.startWidth = 0.01f;
+                        lineRenderer.endWidth = 0.01f;
+
+                        // Set the initial position of the LineRenderer to the position of the key that was pressed
+                        lineRenderer.SetPosition(0, keyObject.transform.position);
+
+                        // Assign the Unlit/Color shader to the LineRenderer's material
+                        lineRenderer.material = new Material(Shader.Find("Unlit/Color"));
+                        lineRenderer.material.color = Color.yellow;
+
+                        // Start the animation coroutine
+                        Coroutine coroutine = StartCoroutine(AnimateLineRenderer(lineRenderer));
+                        activeAnimations[midiNoteValue] = (lineRenderer, coroutine);
+
                     }
                 }
             }
@@ -136,9 +159,31 @@ public class MidiManager: MonoBehaviour
                     if (keyObject.name == midiNoteValue)
                     {
                         keyRenderer.material.color = Color.white;
+                        if (activeAnimations.TryGetValue(midiNoteValue, out var animation))
+                        {
+                            StopCoroutine(animation.Item2);
+                            Destroy(animation.Item1.gameObject);
+                            activeAnimations.Remove(midiNoteValue);
+                        }
                     }
                 }
             }
+        }
+    }
+    
+    IEnumerator AnimateLineRenderer(LineRenderer lineRenderer)
+    {
+        float timeElapsed = 0f;
+
+        // Continue the animation indefinitely
+        while (true)
+        {
+            timeElapsed += Time.deltaTime;
+            float distance = Mathf.Lerp(0, 10, easeInOut(timeElapsed));
+            Vector3 position = lineRenderer.GetPosition(0) + lineRenderer.transform.forward * distance;
+            lineRenderer.SetPosition(1, position);
+
+            yield return null;
         }
     }
 }
